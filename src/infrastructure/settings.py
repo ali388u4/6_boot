@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     postgres_db: str = "bot"
     postgres_user: str = "bot"
     postgres_password: str = "bot"
+    database_url: str | None = Field(default=None, validation_alias=AliasChoices("DATABASE_URL"))
 
     redis_url: str | None = Field(default=None, validation_alias=AliasChoices("REDIS_URL", "REDIS_PUBLIC_URL"))
     redis_host: str = Field(default="redis", validation_alias=AliasChoices("REDIS_HOST", "REDISHOST"))
@@ -35,6 +36,13 @@ class Settings(BaseSettings):
 
     @property
     def database_dsn(self) -> str:
+        if self.database_url:
+            url = self.database_url.strip()
+            if url.startswith("postgres://"):
+                url = "postgresql://" + url[len("postgres://") :]
+            if url.startswith("postgresql://"):
+                url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+            return url
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
