@@ -30,10 +30,14 @@ async def lifespan(app: FastAPI):
     app.state.bot = bot
     app.state.dp = dp
 
-    webhook_enabled = bool(settings.webhook_base_url.strip())
+    webhook_base_url = settings.webhook_base_url.strip()
+    webhook_enabled = bool(webhook_base_url) and webhook_base_url.startswith("https://") and ("=" not in webhook_base_url)
     app.state.webhook_enabled = webhook_enabled
     if webhook_enabled:
-        await bot.set_webhook(url=settings.webhook_url)
+        try:
+            await bot.set_webhook(url=settings.webhook_url)
+        except Exception:
+            app.state.webhook_enabled = False
 
     yield
 
