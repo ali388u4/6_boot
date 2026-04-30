@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     redis_host: str = Field(default="redis", validation_alias=AliasChoices("REDIS_HOST", "REDISHOST"))
     redis_port: int = Field(default=6379, validation_alias=AliasChoices("REDIS_PORT", "REDISPORT"))
     redis_db: int = 0
+    redis_username: str | None = Field(default=None, validation_alias=AliasChoices("REDIS_USER", "REDISUSER"))
     redis_password: str | None = Field(default=None, validation_alias=AliasChoices("REDIS_PASSWORD", "REDISPASSWORD"))
     redis_ssl: bool = False
 
@@ -45,8 +46,14 @@ class Settings(BaseSettings):
             return self.redis_url.strip()
         scheme = "rediss" if self.redis_ssl else "redis"
         host = self.redis_host.strip()
+        username = self.redis_username.strip() if self.redis_username else None
         password = self.redis_password.strip() if self.redis_password else None
-        auth = f":{password}@" if password else ""
+        if username and password:
+            auth = f"{username}:{password}@"
+        elif password:
+            auth = f":{password}@"
+        else:
+            auth = ""
         return f"{scheme}://{auth}{host}:{self.redis_port}/{self.redis_db}"
 
     @property
