@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     @property
     def webhook_url(self) -> str:
-        base = self.webhook_base_url.rstrip("/")
-        path = self.webhook_path if self.webhook_path.startswith("/") else f"/{self.webhook_path}"
+        base = self.webhook_base_url.strip().rstrip("/")
+        raw_path = self.webhook_path.strip()
+        path = raw_path if raw_path.startswith("/") else f"/{raw_path}"
         return f"{base}{path}"
