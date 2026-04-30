@@ -21,6 +21,15 @@ target_metadata = Base.metadata
 def get_url() -> str:
     import os
 
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        url = database_url.strip()
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://"):]
+        if url.startswith("postgresql://"):
+            url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+        return url
+
     user = os.getenv("POSTGRES_USER", "bot")
     password = os.getenv("POSTGRES_PASSWORD", "bot")
     host = os.getenv("POSTGRES_HOST", "localhost")
