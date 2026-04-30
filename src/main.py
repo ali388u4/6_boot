@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 import os
 
 from fastapi import FastAPI
@@ -10,6 +11,9 @@ from src.infrastructure.redis_client import create_redis
 from src.presentation.bot_app import create_bot_app
 from src.presentation.api.admin import router as admin_router
 from src.presentation.webhook import build_webhook_router
+
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -37,7 +41,14 @@ async def lifespan(app: FastAPI):
         try:
             await bot.set_webhook(url=settings.webhook_url)
         except Exception:
+            logger.exception("Failed to set Telegram webhook url=%s", settings.webhook_url)
             app.state.webhook_enabled = False
+    else:
+        logger.warning(
+            "Webhook is disabled (invalid/missing base url). webhook_base_url=%r webhook_url=%r",
+            webhook_base_url,
+            settings.webhook_url,
+        )
 
     yield
 
