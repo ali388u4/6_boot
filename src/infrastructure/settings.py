@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     redis_host: str = "redis"
     redis_port: int = 6379
     redis_db: int = 0
+    redis_password: str | None = None
+    redis_ssl: bool = False
 
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
@@ -38,7 +40,9 @@ class Settings(BaseSettings):
 
     @property
     def redis_dsn(self) -> str:
-        return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        scheme = "rediss" if self.redis_ssl else "redis"
+        auth = f":{self.redis_password}@" if self.redis_password else ""
+        return f"{scheme}://{auth}{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
     @property
     def webhook_url(self) -> str:
