@@ -121,6 +121,43 @@ async def add_chapter(message: Message, settings: Settings, session_factory: asy
     await message.answer("تم إضافة الفصل")
 
 
+@router.message(F.text.startswith("/chapters"))
+async def list_chapters(message: Message, settings: Settings, session_factory: async_sessionmaker[AsyncSession]):
+    if not _is_admin(message=message, settings=settings):
+        return
+
+    payload = (message.text or "").replace("/chapters", "", 1).strip()
+    if not payload:
+        await message.answer("الصيغة: /chapters اسم_المادة")
+        return
+
+    subject_name = payload
+
+    async with session_factory() as session:
+        res = await session.execute(select(SubjectModel).where(SubjectModel.name == subject_name))
+        subject = res.scalars().first()
+        if not subject:
+            await message.answer("المادة غير موجودة")
+            return
+
+        chapters_res = await session.execute(
+            select(ChapterModel)
+            .where(ChapterModel.subject_id == subject.id)
+            .order_by(ChapterModel.order_index.asc(), ChapterModel.title.asc())
+        )
+        chapters = chapters_res.scalars().all()
+
+    if not chapters:
+        await message.answer("لا توجد فصول لهذه المادة")
+        return
+
+    lines: list[str] = []
+    for c in chapters:
+        lines.append(f"{c.title} -> {c.id}")
+
+    await message.answer("\n".join(lines))
+
+
 @router.message(F.text.startswith("/upload_file"))
 async def upload_file_entry(message: Message, state: FSMContext, settings: Settings):
     if not _is_admin(message=message, settings=settings):
