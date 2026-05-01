@@ -1,7 +1,6 @@
 import uuid
 
 from aiogram import F, Router
-from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
@@ -26,12 +25,6 @@ def _main_menu() -> ReplyKeyboardMarkup:
     kb.button(text="حل سؤال")
     kb.adjust(2)
     return kb.as_markup(resize_keyboard=True)
-
-
-@router.message(CommandStart())
-async def start(message: Message, state: FSMContext):
-    await state.clear()
-    await message.answer("اختر من القائمة:", reply_markup=_main_menu())
 
 
 @router.message(F.text == "اعطني سؤال")

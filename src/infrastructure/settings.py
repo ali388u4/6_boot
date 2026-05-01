@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 30
 
     admin_api_key: str | None = None
+    admin_id: int | None = Field(default=None, validation_alias=AliasChoices("ADMIN_ID"))
 
     @property
     def database_dsn(self) -> str:

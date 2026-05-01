@@ -10,3 +10,7 @@ class QuestionBankStates(StatesGroup):
 class SolverStates(StatesGroup):
     choosing_subject = State()
     waiting_question_text = State()
+
+
+class AdminStates(StatesGroup):
+    waiting_chapter_file = State()

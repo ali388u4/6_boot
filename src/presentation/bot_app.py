@@ -16,6 +16,7 @@ from src.infrastructure.persistence.repositories import (
     SqlAlchemyUserSessionRepository,
 )
 from src.infrastructure.settings import Settings
+from src.presentation.handlers.materials import router as materials_router
 from src.presentation.handlers.question_bank import router as question_bank_router
 from src.presentation.handlers.solver import router as solver_router
 from src.presentation.middlewares.error_handler import ErrorHandlerMiddleware
@@ -54,6 +55,8 @@ def create_bot_app(
 
     dp.workflow_data.update(
         {
+            "settings": settings,
+            "session_factory": session_factory,
             "question_bank_service": question_bank_service,
             "question_repo": question_repo,
             "ai_solver_service": ai_solver_service,
@@ -61,6 +64,7 @@ def create_bot_app(
         }
     )
 
+    dp.include_router(materials_router)
     dp.include_router(question_bank_router)
     dp.include_router(solver_router)
 
