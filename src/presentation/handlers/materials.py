@@ -19,9 +19,7 @@ router = Router()
 def _chapter_menu() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.button(text="اعطني سؤال")
-    kb.button(text="اختبرني")
-    kb.button(text="اشرح")
-    kb.adjust(2)
+    kb.adjust(1)
     return kb.as_markup(resize_keyboard=True)
 
 
@@ -62,9 +60,13 @@ async def open_chapter(callback: CallbackQuery, state: FSMContext, session_facto
     chapter_id = uuid.UUID(callback.data.split(":")[-1])
     await state.update_data(current_chapter_id=str(chapter_id))
 
-    async with session_factory() as session:
-        res = await session.execute(select(ChapterFileModel).where(ChapterFileModel.chapter_id == chapter_id))
-        files = res.scalars().all()
+    try:
+        async with session_factory() as session:
+            res = await session.execute(select(ChapterFileModel).where(ChapterFileModel.chapter_id == chapter_id))
+            files = res.scalars().all()
+    except Exception:
+        await callback.message.answer("حدث خطأ أثناء قراءة ملفات الفصل")
+        return
 
     if not files:
         await callback.message.answer("لا توجد ملفات لهذا الفصل.")
@@ -84,16 +86,12 @@ async def open_chapter(callback: CallbackQuery, state: FSMContext, session_facto
 
 
 @router.message(
-    F.text.in_(
-        {
-            "اعطني سؤال",
-            "سؤال",
-            "اسئلة",
-            "اختبرني",
-            "اختبار",
-            "اشرح",
-        }
-    )
+    (F.text == "اعطني سؤال")
+    | (F.text == "سؤال")
+    | (F.text == "اسئلة")
+    | (F.text == "اختبرني")
+    | (F.text == "اختبار")
+    | (F.text == "اشرح")
 )
 async def chapter_ai_entry(
     message: Message,
@@ -101,6 +99,7 @@ async def chapter_ai_entry(
     session_factory: async_sessionmaker[AsyncSession],
     ai_solver_service,
 ):
+    await message.answer("جاري التحضير...")
     data = await state.get_data()
     chapter_id_str = data.get("current_chapter_id")
     if not chapter_id_str:
@@ -121,14 +120,17 @@ async def chapter_ai_entry(
         await message.answer("هذا الفصل لا يحتوي ملفات بعد")
         return
 
-    intent = (message.text or "").strip()
-    text = await ai_solver_service.build_chapter_context(bot=message.bot, files=files)
-    if not text.strip():
-        await message.answer("لم أستطع قراءة محتوى الملفات لهذا الفصل")
-        return
+    try:
+        intent = (message.text or "").strip()
+        text = await ai_solver_service.build_chapter_context(bot=message.bot, files=files)
+        if not text.strip():
+            await message.answer("لم أستطع قراءة محتوى الملفات لهذا الفصل")
+            return
 
-    out = await ai_solver_service.generate_from_chapter(intent=intent, chapter_text=text)
-    await message.answer(out)
+        out = await ai_solver_service.generate_from_chapter(intent=intent, chapter_text=text)
+        await message.answer(out)
+    except Exception:
+        await message.answer("حدث خطأ أثناء توليد السؤال من ملفات الفصل")
 
 
 @router.message(F.text.startswith("/add_subject"))
