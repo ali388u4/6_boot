@@ -3,7 +3,8 @@ import uuid
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -13,6 +14,15 @@ from src.presentation.handlers.keyboards import build_chapters_kb, build_subject
 from src.presentation.handlers.states import AdminStates
 
 router = Router()
+
+
+def _chapter_menu() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardBuilder()
+    kb.button(text="اعطني سؤال")
+    kb.button(text="اختبرني")
+    kb.button(text="اشرح")
+    kb.adjust(2)
+    return kb.as_markup(resize_keyboard=True)
 
 
 def _is_admin(*, message: Message | CallbackQuery, settings: Settings) -> bool:
@@ -35,8 +45,9 @@ async def start(message: Message, state: FSMContext, question_bank_service):
 
 
 @router.callback_query(F.data.startswith("mat:subject:"))
-async def choose_subject(callback: CallbackQuery, question_bank_service):
+async def choose_subject(callback: CallbackQuery, state: FSMContext, question_bank_service):
     subject_id = uuid.UUID(callback.data.split(":")[-1])
+    await state.update_data(current_subject_id=str(subject_id))
     chapters = await question_bank_service.list_chapters(subject_id)
     if not chapters:
         await callback.message.answer("لا توجد فصول لهذه المادة.")
@@ -47,8 +58,9 @@ async def choose_subject(callback: CallbackQuery, question_bank_service):
 
 
 @router.callback_query(F.data.startswith("mat:chapter:"))
-async def open_chapter(callback: CallbackQuery, session_factory: async_sessionmaker[AsyncSession]):
+async def open_chapter(callback: CallbackQuery, state: FSMContext, session_factory: async_sessionmaker[AsyncSession]):
     chapter_id = uuid.UUID(callback.data.split(":")[-1])
+    await state.update_data(current_chapter_id=str(chapter_id))
 
     async with session_factory() as session:
         res = await session.execute(select(ChapterFileModel).where(ChapterFileModel.chapter_id == chapter_id))
@@ -66,7 +78,57 @@ async def open_chapter(callback: CallbackQuery, session_factory: async_sessionma
         else:
             await callback.message.answer_document(document=f.telegram_file_id, caption=name or None)
 
+    await callback.message.answer("اختر:", reply_markup=_chapter_menu())
+
     await callback.answer()
+
+
+@router.message(
+    F.text.in_(
+        {
+            "اعطني سؤال",
+            "سؤال",
+            "اسئلة",
+            "اختبرني",
+            "اختبار",
+            "اشرح",
+        }
+    )
+)
+async def chapter_ai_entry(
+    message: Message,
+    state: FSMContext,
+    session_factory: async_sessionmaker[AsyncSession],
+    ai_solver_service,
+):
+    data = await state.get_data()
+    chapter_id_str = data.get("current_chapter_id")
+    if not chapter_id_str:
+        await message.answer("اختر المادة ثم الفصل أولاً من /start")
+        return
+
+    try:
+        chapter_id = uuid.UUID(chapter_id_str)
+    except ValueError:
+        await message.answer("اختر المادة ثم الفصل أولاً من /start")
+        return
+
+    async with session_factory() as session:
+        res = await session.execute(select(ChapterFileModel).where(ChapterFileModel.chapter_id == chapter_id))
+        files = res.scalars().all()
+
+    if not files:
+        await message.answer("هذا الفصل لا يحتوي ملفات بعد")
+        return
+
+    intent = (message.text or "").strip()
+    text = await ai_solver_service.build_chapter_context(bot=message.bot, files=files)
+    if not text.strip():
+        await message.answer("لم أستطع قراءة محتوى الملفات لهذا الفصل")
+        return
+
+    out = await ai_solver_service.generate_from_chapter(intent=intent, chapter_text=text)
+    await message.answer(out)
 
 
 @router.message(F.text.startswith("/add_subject"))

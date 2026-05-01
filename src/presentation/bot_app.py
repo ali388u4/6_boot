@@ -17,7 +17,6 @@ from src.infrastructure.persistence.repositories import (
 )
 from src.infrastructure.settings import Settings
 from src.presentation.handlers.materials import router as materials_router
-from src.presentation.handlers.question_bank import router as question_bank_router
 from src.presentation.handlers.solver import router as solver_router
 from src.presentation.middlewares.error_handler import ErrorHandlerMiddleware
 from src.presentation.middlewares.rate_limit import RateLimitMiddleware
@@ -65,7 +64,6 @@ def create_bot_app(
     )
 
     dp.include_router(materials_router)
-    dp.include_router(question_bank_router)
     dp.include_router(solver_router)
 
     return bot, dp

@@ -29,12 +29,10 @@ def _main_menu() -> ReplyKeyboardMarkup:
 
 @router.message(F.text == "اعطني سؤال")
 async def ask_question_entry(message: Message, state: FSMContext, question_bank_service: QuestionBankService):
-    await state.set_state(QuestionBankStates.choosing_subject)
-    subjects = await question_bank_service.list_subjects()
-    if not subjects:
-        await message.answer("لا توجد مواد مضافة بعد.")
+    data = await state.get_data()
+    if data.get("current_chapter_id"):
         return
-    await message.answer("اختر المادة:", reply_markup=build_subjects_kb(subjects))
+    await message.answer("اختر المادة ثم الفصل أولاً من /start")
 
 
 @router.callback_query(F.data.startswith("qb:subject:"))
